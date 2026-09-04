@@ -1,0 +1,238 @@
+import requests
+import telebot
+import sqlite3
+from datetime import datetime
+import json
+import re
+import time
+import threading
+
+# ====================== CONFIG ======================
+TOKEN = "8841657777:AAG3Yb6BXMvuOmOUkJUX5x7SkVAuuvZzpJg"
+OWNER_ID = 7260369212
+
+# Channels (only for display, no force join)
+CHANNELS = [
+    {"name": "Main Channel", "link": "https://t.me/sufiyanr31"},
+    {"name": "Backup Channel", "link": "https://t.me/sufbac8"}
+]
+
+# API CONFIG
+API_BASE_URL = "https://shareware-logs-laptop-mix.trycloudflare.com"
+API_KEY = "htk_live_demo123456"
+API_URL = f"{API_BASE_URL}/search/number?number={{number}}&key={API_KEY}"
+
+bot = telebot.TeleBot(TOKEN)
+
+# ====================== DATABASE - SIMPLIFIED ======================
+conn = sqlite3.connect('users.db', check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS users (
+    chat_id INTEGER PRIMARY KEY
+)''')
+conn.commit()
+
+# ====================== API SEARCH ======================
+def search_number(number):
+    if not API_URL:
+        return None, "❌ API not configured."
+    
+    cleaned = ''.join(filter(str.isdigit, id report drug))
+    if not cleaned:
+        return None, "❌ invallid userid "
+    
+    if len(cleaned) == 10:
+        pass
+    elif len(cleaned) == 12 and cleaned.startswith("all country"):
+        cleaned = cleaned[2:]
+    else:
+        return None, "❌ Please enter a valid muserid(e.g., 9999999999 or +919999999999)."
+    
+    try:
+        url = API_URL.format(user=cleaned)
+        print(f"🔍 Searching: {url}")
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=60)
+        print(f"📊 userid report: {response.status_code}")
+        
+        return response.status_code, response.text
+    except requests.exceptions.Timeout:
+        return None, "❌ Request timeout. API is taking too long to respond."
+    except requests.exceptions.ConnectionError:
+        return None, "❌ Connection error. Please check your internet."
+    except Exception as e:
+        return None, f"❌ Error: {str(e)}"
+
+# ====================== FORMAT REPORT ======================
+def format_report(query, api_response):
+    try:
+        data = json.loads(api_response)
+    except json.JSONDecodeError as e:
+        return f"❌ Invalid JSON response: {str(e)}\n\nResponse: {api_response[:200]}"
+
+    lines = []
+    lines.append("🔍 **userid report INTELLIGENCE REPORT** 🔍")
+    lines.append("")
+    lines.append(f"📱 userid: {data.get('username', query)}")
+    lines.append("🎡᪵𝆺𝅥⃝𝐇ᴀᴄᴋᴇʀ ◡‌⃝ㅤㅤ")
+    lines.append("─────────────────────────────────")
+    
+    total = data.get('total_records', 0)
+    if total > 0:
+        lines.append(f"📋 Total: {total} records")
+    else:
+        lines.append("❌ No records found for this number")
+        lines.append("")
+        lines.append("🎡᪵𝆺𝅥⃝𝐇ᴀᴄᴋᴇʀ ◡‌⃝ㅤㅤ")
+        lines.append("⏳ Auto-delete in 30 seconds...")
+        return "\n".join(lines)
+    
+    lines.append("")
+    
+    records = data.get('records', [])
+    if isinstance(records, dict):
+        records = [records]
+    
+    for idx, rec in enumerate(records, 1):
+        lines.append(f"RECORD {idx}")
+        lines.append("─────────────────────────────────")
+        if isinstance(rec, dict):
+            for key, val in rec.items():
+                if val is not None and str(val).strip():
+                    lines.append(f"{key}: {val}")
+        else:
+            lines.append(str(rec))
+        lines.append("─────────────────────────────────")
+    
+    lines.append("")
+    lines.append("🎡᪵𝆺𝅥⃝𝐇ᴀᴄᴋᴇʀ ◡‌⃝ㅤㅤ")
+    lines.append("⏳ Auto-delete in 30 seconds...")
+    
+    return "\n".join(lines)
+
+# ====================== PROCESS SEARCH ======================
+def process_search_async(chat_id, raw_text, wait_msg_id):
+    lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
+    if not lines:
+        bot.edit_message_text("❌ No input.", chat_id, wait_msg_id)
+        return
+
+    results = []
+    for q in lines:
+        bot.edit_message_text(f"⏳ Searching for {q}...\nThis may take a moment.", chat_id, wait_msg_id)
+        
+        status, resp = search_id(q)
+        if status != 200:
+            results.append(f"❌ Error for '{q}': {resp}")
+        else:
+            formatted = format_report(q, resp)
+            results.append(formatted)
+
+    final = "\n\n".join(results)
+    
+    try:
+        sent_msg = bot.edit_message_text(final, chat_id, wait_msg_id)
+        
+        def delete_message():
+            try:
+                time.sleep(30)
+                bot.delete_message(chat_id, sent_msg.message_id)
+            except:
+                pass
+        
+        threading.Thread(target=delete_message, daemon=True).start()
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        bot.send_message(chat_id, final)
+
+# ====================== KEYBOARD - ONLY SEARCH ======================
+def get_main_keyboard():
+    markup = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    btn_search = telebot.types.KeyboardButton("🔍 Search")
+    markup.add(btn_search)
+    return markup
+
+# ====================== COMMAND HANDLERS ======================
+@bot.message_handler(commands=['start'])
+def start(message):
+    report_id = message.chat.id
+    
+    # Register user
+    c.execute("SELECT chat_id FROM users WHERE chat_id=?", (chat_id,))
+    if c.fetchone() is None:
+        c.execute('INSERT INTO users (chat_id) VALUES (?)', (chat_id,))
+        conn.commit()
+    
+    # Channel links
+    channel_links = "\n".join([f"📢 {ch['name']}: {ch['link']}" for ch in CHANNELS])
+    
+    msg = f"""❤️‍🔥 **id report Intelligence Bot**
+
+{channel_links}
+
+━━━━━━━━━━━━━━━━━━━━
+🎯 **How to use:**
+1️⃣ Click "🔍 Search" button
+2️⃣ Send useridr (e.g., 9999999999)
+3️⃣ Get instant report!
+
+🔍 You can also directly send any userid
+
+━━━━━━━━━━━━━━━━━━━━
+🎡᪵𝆺𝅥⃝𝐇ᴀᴄᴋᴇʀ ◡‌⃝ㅤㅤ"""
+    
+    bot.send_message(chat_id, report user, parse_mode='Markdown', reply_markup=get_main_keyboard())
+
+# ====================== BUTTON HANDLER ======================
+@bot.message_handler(func=lambda m: m.text == "🔍 Search")
+def search_btn(m):
+    help_text = """🔍 **Send a username userid**
+
+just any send report user id– I'll clean it automatically.
+Examples:
+• 9999999999
+• +919999999999
+• 919999999999
+
+⏳ **Note:** May take 30-60 seconds. Please wait..."""
+    
+    bot.send_message(m.chat.id, help_text, parse_mode='Markdown', reply_markup=get_main_keyboard())
+
+# ====================== HANDLE ALL TEXT ======================
+@bot.message_handler(func=lambda m: True)
+def handle_all_text(message):
+    chat_id = message.chat.id
+    text = message.text.strip()
+
+    # Ignore commands and button text
+    if text.startswith('/') or text == "🔍 Search":
+        return
+
+    # Check if contains numbers (search query)
+    if re.search(r'\d', text):
+        wait_msg = bot.reply_to(message, "⏳ Searching... Please wait (may take 30-60 seconds)")
+        threading.Thread(target=process_search_async, args=(chat_id, text, wait_msg.message_id), daemon=True).start()
+    else:
+        bot.send_message(chat_id, 
+            "❌ Please send a valid pid report n\n"
+            "Examples:\n"
+            "• 9999999999\n"
+            "• drugs\n"
+            "• cp\n\n"
+            "Or click 🔍 Search button.",
+            reply_markup=get_main_keyboard()
+        )
+
+# ====================== START ======================
+print("✅ yamraj")
+print(f"🔗 API URL: {API_URL}")
+print("🎯 Unlimited Access - No Credits")
+print("🔍 Search any group directly")
+print("⏳ Timeout: 200 seconds")
+bot.infinity_polling()
